@@ -29,3 +29,7 @@ add_executable(main_gpu main_gpu.cu ${gpu_version_src})
 
 target_include_directories(main_gpu PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/gpu_version/include/)
 
+
+add_executable(test_array3d test_array3d.cu)
+
+target_include_directories(test_array3d PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/gpu_version/include/)

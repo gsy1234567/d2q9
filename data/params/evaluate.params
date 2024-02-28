@@ -1,6 +1,6 @@
 nx: 5
 ny: 5
-iters: 1000
+iters: 10
 density: 1
 viscosity: 0.02
 velocity: 0.05

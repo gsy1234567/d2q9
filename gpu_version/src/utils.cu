@@ -89,13 +89,12 @@ __host__ void init_cpu_data(const t_param& params, t_cpu_data& cpu_data) {
     std::fill_n(p_start, params.nx * params.ny, params.density * 4.f / 9.f);
     p_start += offset;
 
-    #pragma unroll
+    
     for(int i = 0 ; i < 4 ; ++i) {
         std::fill_n(p_start, params.nx * params.ny, params.density / 9.f);
         p_start += offset;
     }
 
-    #pragma unroll
     for(int i = 0 ; i < 4 ; ++i) {
       std::fill_n(p_start, params.nx * params.ny, params.density / 36.f);
       p_start += offset;
@@ -107,72 +106,72 @@ __host__ void deinit_cpu_data(const t_param& params, t_cpu_data& cpu_data) {
     cpu_data.p_host_speeds = nullptr;
 }
 
-__host__ void init_gpu_data(const t_param& params, t_gpu_data& gpu_data, const char* obstacles_path) {
-    gpu_data.dev_speeds_extent = make_cudaExtent(sizeof(float) * params.nx, params.ny, 9);
-    CUDA_CALL(cudaMalloc3D(&gpu_data.p_speeds, gpu_data.dev_speeds_extent));
+// __host__ void init_gpu_data(const t_param& params, t_gpu_data& gpu_data, const char* obstacles_path) {
+//     gpu_data.dev_speeds_extent = make_cudaExtent(sizeof(float) * params.nx, params.ny, 9);
+//     CUDA_CALL(cudaMalloc3D(&gpu_data.p_speeds, gpu_data.dev_speeds_extent));
 
-    std::ifstream file {obstacles_path};
-    std::string line;
+//     std::ifstream file {obstacles_path};
+//     std::string line;
 
-    if(!file) {
-        die("Could not open the obstacles file", __LINE__, __FILE__);
-    }
+//     if(!file) {
+//         die("Could not open the obstacles file", __LINE__, __FILE__);
+//     }
   
-    const u32 u32_num = (params.nx + 31) / 32 * params.ny;
-    u32 cells_num = u32_num * 32;
+//     const u32 u32_num = (params.nx + 31) / 32 * params.ny;
+//     u32 cells_num = u32_num * 32;
 
-    if(cells_num > max_cells) {
-        die("Could not apply contant memory optimization", __LINE__, __FILE__);
-    }
+//     if(cells_num > max_cells) {
+//         die("Could not apply contant memory optimization", __LINE__, __FILE__);
+//     }
 
-    gpu_data.obs_pitch = (params.nx + 31) / 32; 
-    // u32 * cpu_obstacles = (u32*)calloc(u32_num, sizeof(u32));
-    u32 cpu_obstacles[max_obstacle_len] = {0};
+//     gpu_data.obs_pitch = (params.nx + 31) / 32; 
+//     // u32 * cpu_obstacles = (u32*)calloc(u32_num, sizeof(u32));
+//     u32 cpu_obstacles[max_obstacle_len] = {0};
 
-    int ok = 0;
-    int x, y, block;
+//     int ok = 0;
+//     int x, y, block;
 
-    while(std::getline(file, line)) {
-        ok = sscanf(line.data(), "%d %d %d", &x, &y, &block);
-        y += params.ny / 2;
-        if(ok != 3) die("invalid format", __LINE__, __FILE__);
-        if(block != 1) die("obstacles file is not valid", __LINE__, __FILE__);
-        if(x >= params.nx) die("x is not valid", __LINE__, __FILE__);
-        if(y >= params.ny) die("y is not valid", __LINE__, __FILE__);
-        u32 x_offset = x / 32;
-        u32 bit_offset = x % 32;
-        cpu_obstacles[y * gpu_data.obs_pitch + x_offset] |= (1U << bit_offset);
-    }
+//     while(std::getline(file, line)) {
+//         ok = sscanf(line.data(), "%d %d %d", &x, &y, &block);
+//         y += params.ny / 2;
+//         if(ok != 3) die("invalid format", __LINE__, __FILE__);
+//         if(block != 1) die("obstacles file is not valid", __LINE__, __FILE__);
+//         if(x >= params.nx) die("x is not valid", __LINE__, __FILE__);
+//         if(y >= params.ny) die("y is not valid", __LINE__, __FILE__);
+//         u32 x_offset = x / 32;
+//         u32 bit_offset = x % 32;
+//         cpu_obstacles[y * gpu_data.obs_pitch + x_offset] |= (1U << bit_offset);
+//     }
 
-    std::cout << "==obstacles==" << std::endl;
-    for(u32 yy = 0 ; yy < params.ny ; ++yy) {
-        int x = 0;
-        for(u32 xx = 0 ; xx < params.nx ; xx += 32, ++x) {
-            std::bitset<32>& curr = reinterpret_cast<std::bitset<32>&>(cpu_obstacles[yy * gpu_data.obs_pitch + x]);
-            for(int i = 0 ; i < 32 ; ++i) {
-              std::cout << curr[i];
-            }
-        }
-        std::cout << std::endl;
-    }
+//     std::cout << "==obstacles==" << std::endl;
+//     for(u32 yy = 0 ; yy < params.ny ; ++yy) {
+//         int x = 0;
+//         for(u32 xx = 0 ; xx < params.nx ; xx += 32, ++x) {
+//             std::bitset<32>& curr = reinterpret_cast<std::bitset<32>&>(cpu_obstacles[yy * gpu_data.obs_pitch + x]);
+//             for(int i = 0 ; i < 32 ; ++i) {
+//               std::cout << curr[i];
+//             }
+//         }
+//         std::cout << std::endl;
+//     }
 
-    CUDA_CALL(cudaMemcpyToSymbol(obstacles, cpu_obstacles, sizeof(cpu_obstacles)));
-    CUDA_CALL(cudaMalloc(&gpu_data.p_dev_inlets, sizeof(float) * params.ny));
+//     CUDA_CALL(cudaMemcpyToSymbol(obstacles, cpu_obstacles, sizeof(cpu_obstacles)));
+//     CUDA_CALL(cudaMalloc(&gpu_data.p_dev_inlets, sizeof(float) * params.ny));
 
-    float * cpu_inlets = (float*)malloc(sizeof(float) * params.ny);
-    if(!params.type) {
-      for(int jj = 0 ; jj < params.ny ; ++jj) {
-        cpu_inlets[jj] = params.velocity;
-      }
-    } else {
-      for(int jj = 0 ; jj < params.ny ; ++jj) {
-        cpu_inlets[jj] = params.velocity * 4.0f *((1.f-((float)jj)/params.ny)*((float)(jj+1))/params.ny);
-      }
-    }
+//     float * cpu_inlets = (float*)malloc(sizeof(float) * params.ny);
+//     if(!params.type) {
+//       for(int jj = 0 ; jj < params.ny ; ++jj) {
+//         cpu_inlets[jj] = params.velocity;
+//       }
+//     } else {
+//       for(int jj = 0 ; jj < params.ny ; ++jj) {
+//         cpu_inlets[jj] = params.velocity * 4.0f *((1.f-((float)jj)/params.ny)*((float)(jj+1))/params.ny);
+//       }
+//     }
 
-    CUDA_CALL(cudaMemcpy(gpu_data.p_dev_inlets, cpu_inlets, sizeof(float) * params.ny, cudaMemcpyDefault));
-    free(cpu_inlets);
-}
+//     CUDA_CALL(cudaMemcpy(gpu_data.p_dev_inlets, cpu_inlets, sizeof(float) * params.ny, cudaMemcpyDefault));
+//     free(cpu_inlets);
+// }
 
 __host__ void deinit_gpu_data(const t_param& params, t_gpu_data& gpu_data) {
   CUDA_CALL(cudaFree(gpu_data.p_speeds.ptr));
@@ -196,3 +195,6 @@ __host__ void speeds_device_to_host_async(const t_param& params, const t_cpu_dat
     cpy_param.kind   = cudaMemcpyDeviceToHost;
     CUDA_CALL(cudaMemcpy3DAsync(&cpy_param, cuda_stream));
 }
+
+
+

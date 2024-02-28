@@ -17,6 +17,18 @@ void usage(const char* exe)
   exit(EXIT_FAILURE);
 }
 
+void print_speed(const t_param& params, t_speed* speeds) {
+    for(int i = 0 ; i < 9 ; ++i) {
+      printf("speeds: %d\n", i);
+      for(int yy = params.ny - 1 ; yy >= 0 ; --yy) {
+        for(int xx = 0 ; xx < params.nx ; ++xx) {
+          printf("%.5f ", speeds[yy * params.nx + xx].speeds[i]);
+        }
+        printf("\n");
+      }
+    }
+}
+
 /*
 ** main program:
 ** initialise, timestep loop, finalise
@@ -80,6 +92,16 @@ int main(int argc, char* argv[])
   for (int tt = 0; tt < params.maxIters; tt++)
   {
     timestep(params, cells, tmp_cells, inlets, obstacles);
+    printf("%.5f, %.5f, %.5f, %.5f, %.5f, %.5f, %.5f, %.5f, %.5f\n", 
+            cells[0].speeds[0], 
+            cells[0].speeds[1],
+            cells[0].speeds[2], 
+            cells[0].speeds[3], 
+            cells[0].speeds[4], 
+            cells[0].speeds[5], 
+            cells[0].speeds[6], 
+            cells[0].speeds[7], 
+            cells[0].speeds[8]);
 
   /* Visualization */
 #ifdef VISUAL
@@ -89,6 +111,7 @@ int main(int argc, char* argv[])
     }
 #endif
   }
+
 
   /* Compute time stops here */
   auto t_comp = std::chrono::high_resolution_clock::now();
@@ -104,6 +127,7 @@ int main(int argc, char* argv[])
   printf("Average velocity:\t\t\t%.12E\n", av_velocity(params, cells, obstacles));
   printf("Elapsed Init time:\t\t\t%llu (ms)\n",    init_duration.count());
   printf("Elapsed Compute time:\t\t\t%llu (ms)\n", comp_duration.count());
+  print_speed(params, cells);
 
   /* finalise */
   finalise(&params, &cells, &tmp_cells, &obstacles, &inlets);
