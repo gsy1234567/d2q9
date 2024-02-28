@@ -344,11 +344,11 @@ int main(int argc, char *argv[]) {
     init_device_data(params, gpu_data, obstaclefile, cuda_stream);
     dim3 grid_info {
         (params.nx - 1) / 32 + 1, 
-        (params.ny - 1) / 8 + 1, 
+        (params.ny - 1) / 16 + 1, 
         1
     };
     dim3 block_info {
-        32, 8, 1
+        32, 16, 1
     };
     void * args[] = {&params, &gpu_data};
     CUDA_CALL(cudaLaunchCooperativeKernel((void*)_d2q9_bgk, grid_info, block_info, args, 0, cuda_stream));
