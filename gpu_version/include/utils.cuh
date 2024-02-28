@@ -59,6 +59,6 @@ __device__ inline void save_3d_elem(void* ptr, const float val, const u32 x, con
 
 __host__ inline void test_gpu(void) {
     cudaDeviceProp prop;
-    CUDA_CALL(cudaGetDeviceProperties_v2(&prop, 0));
+    CUDA_CALL(cudaGetDeviceProperties(&prop, 0));
     printf("shared memory per block %llu\n", prop.sharedMemPerBlock);
 }

@@ -1,12 +1,14 @@
-cmake_minimum_required(VERSION 3.23)
+cmake_minimum_required(VERSION 3.22)
 
 project(d2q9 LANGUAGES CXX CUDA)
 
 set(CMAKE_CXX_STANDARD 20)
 
-set(EXECUTABLE_OUTPUT_PATH ${CMAKE_CURRENT_SOURCE_DIR}/bin)
-
-set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/bin)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin)
+foreach(OUTPUTCONFIG ${CMAKE_CONFIGURATION_TYPES})
+    string(TOUPPER ${OUTPUTCONFIG} OUTPUTCONFIG)
+    set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_${OUTPUTCONFIG} ${CMAKE_SOURCE_DIR}/bin)
+endforeach(OUTPUTCONFIG)
 
 file(
     GLOB 
@@ -28,8 +30,3 @@ file(
 add_executable(main_gpu main_gpu.cu ${gpu_version_src})
 
 target_include_directories(main_gpu PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/gpu_version/include/)
-
-
-add_executable(test_array3d test_array3d.cu)
-
-target_include_directories(test_array3d PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/gpu_version/include/)

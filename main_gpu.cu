@@ -351,7 +351,7 @@ int main(int argc, char *argv[]) {
         32, 8, 1
     };
     void * args[] = {&params, &gpu_data};
-    CUDA_CALL(cudaLaunchCooperativeKernel(&_d2q9_bgk, grid_info, block_info, args, 0, cuda_stream));
+    CUDA_CALL(cudaLaunchCooperativeKernel((void*)_d2q9_bgk, grid_info, block_info, args, 0, cuda_stream));
     cuda_error_check("_d2q9_bgk", __LINE__, __FILE__);
     if(params.maxIters % 2 == 0) {
         copy_device_speeds_to_host(params, p_host_1, host_speeds, cuda_stream);
