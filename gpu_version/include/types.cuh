@@ -26,3 +26,4 @@ struct t_gpu_data {
 struct t_cpu_data {
     float *p_host_speeds = nullptr;
 };
+

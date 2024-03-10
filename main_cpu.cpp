@@ -10,6 +10,17 @@
 #include "d2q9_bgk.h"
 #include <chrono>
 
+void print_stream_and_boundary(const t_param& params, t_speed* cells, unsigned int speed) {
+  std::cout << "Current speed is " << speed << std::endl;
+  for(int jj = params.ny - 1 ; jj >= 0 ; --jj) {
+    for(int ii = 0 ; ii < params.nx ; ++ii) {
+      speed_identifier identifer {cells[ii + jj * params.nx].speeds[speed]};
+      printf("|(%u, %u, %u)", identifer.get_x(), identifer.get_y(), identifer.get_speed());
+    }
+    printf("|\n");  
+  }
+} 
+
 /* output usage examples */
 void usage(const char* exe)
 {
@@ -92,16 +103,6 @@ int main(int argc, char* argv[])
   for (int tt = 0; tt < params.maxIters; tt++)
   {
     timestep(params, cells, tmp_cells, inlets, obstacles);
-    printf("%.5f, %.5f, %.5f, %.5f, %.5f, %.5f, %.5f, %.5f, %.5f\n", 
-            cells[0].speeds[0], 
-            cells[0].speeds[1],
-            cells[0].speeds[2], 
-            cells[0].speeds[3], 
-            cells[0].speeds[4], 
-            cells[0].speeds[5], 
-            cells[0].speeds[6], 
-            cells[0].speeds[7], 
-            cells[0].speeds[8]);
 
   /* Visualization */
 #ifdef VISUAL
@@ -127,7 +128,7 @@ int main(int argc, char* argv[])
   printf("Average velocity:\t\t\t%.12E\n", av_velocity(params, cells, obstacles));
   printf("Elapsed Init time:\t\t\t%llu (ms)\n",    init_duration.count());
   printf("Elapsed Compute time:\t\t\t%llu (ms)\n", comp_duration.count());
-  print_speed(params, cells);
+  //print_speed(params, cells);
 
   /* finalise */
   finalise(&params, &cells, &tmp_cells, &obstacles, &inlets);

@@ -6,6 +6,8 @@ int collision(const t_param params, t_speed* cells, t_speed* tmp_cells, int* obs
 int streaming(const t_param params, t_speed* cells, t_speed* tmp_cells);
 int obstacle(const t_param params, t_speed* cells, t_speed* tmp_cells, int* obstacles);
 int boundary(const t_param params, t_speed* cells, t_speed* tmp_cells, float* inlets);
+int test_boundary(const t_param& params, t_speed* cells, t_speed* tmp_cells);
+void set_identifier(const t_param& params, t_speed* cells);
 
 /*
 ** The main calculation methods.
@@ -20,6 +22,13 @@ int timestep(const t_param params, t_speed* cells, t_speed* tmp_cells, float* in
   streaming(params, cells, tmp_cells);
   boundary(params, cells, tmp_cells, inlets);
   return EXIT_SUCCESS;
+}
+
+int test_stream_and_boundary(const t_param& params, t_speed* cells, t_speed* tmp_cells) {
+    set_identifier(params, tmp_cells);
+    streaming(params, cells, tmp_cells);
+    test_boundary(params, cells, tmp_cells);
+    return EXIT_SUCCESS;
 }
 
 /*
@@ -257,4 +266,68 @@ int boundary(const t_param params, t_speed* cells,  t_speed* tmp_cells, float* i
   }
   
   return EXIT_SUCCESS;
+}
+
+int test_boundary(const t_param& params, t_speed* cells, t_speed* tmp_cells) {
+  const float cst1 = 2.0/3.0;
+  const float cst2 = 1.0/6.0;
+  const float cst3 = 1.0/2.0;
+
+  int ii, jj; 
+  float local_density;
+  
+  // top wall (bounce)
+  jj = params.ny -1;
+  for(ii = 0; ii < params.nx; ii++){
+    cells[ii + jj*params.nx].speeds[4] = tmp_cells[ii + jj*params.nx].speeds[2];
+    cells[ii + jj*params.nx].speeds[7] = tmp_cells[ii + jj*params.nx].speeds[5];
+    cells[ii + jj*params.nx].speeds[8] = tmp_cells[ii + jj*params.nx].speeds[6];
+  }
+
+  // bottom wall (bounce)
+  jj = 0;
+  for(ii = 0; ii < params.nx; ii++){
+    cells[ii + jj*params.nx].speeds[2] = tmp_cells[ii + jj*params.nx].speeds[4];
+    cells[ii + jj*params.nx].speeds[5] = tmp_cells[ii + jj*params.nx].speeds[7];
+    cells[ii + jj*params.nx].speeds[6] = tmp_cells[ii + jj*params.nx].speeds[8];
+  }
+
+  // left wall (inlet)
+  ii = 0;
+  for(jj = 0; jj < params.ny; jj++){
+
+    cells[ii + jj*params.nx].speeds[1] = 0;
+
+    cells[ii + jj*params.nx].speeds[5] = 0;
+
+    cells[ii + jj*params.nx].speeds[8] = 0;
+  
+  }
+
+  // right wall (outlet)
+  ii = params.nx-1;
+  for(jj = 0; jj < params.ny; jj++){
+
+    for (int kk = 0; kk < NSPEEDS; kk++)
+    {
+      cells[ii + jj*params.nx].speeds[kk] = cells[ii-1 + jj*params.nx].speeds[kk];
+    }
+    
+  }
+  
+  return EXIT_SUCCESS;
+}
+
+void set_identifier(const t_param& params, t_speed* cells) {
+    speed_identifier identifier;
+    for(unsigned int jj = 0 ; jj < params.ny ; ++jj) {
+      identifier.set_y(jj);
+      for(unsigned int ii = 0 ; ii < params.nx ; ++ii) {
+        identifier.set_x(ii);
+        for(unsigned int kk = 0 ; kk < NSPEEDS ; ++kk) {
+          identifier.set_speed(kk);
+          cells[ii + jj * params.nx].speeds[kk] = static_cast<float>(identifier);
+        }
+      }
+    }
 }

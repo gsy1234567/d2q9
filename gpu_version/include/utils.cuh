@@ -5,6 +5,8 @@
 #include <cstdio>
 #include "types.cuh"
 #include "constant.cuh"
+#include <utility>
+#include <cooperative_groups.h>
 
 __host__ inline void cuda_call(cudaError_t err_code, const int line, const char* file) {
     if(err_code != cudaSuccess) {
@@ -22,7 +24,6 @@ __host__ inline void cuda_error_check(const char* kernel_name, const int line, c
     }
 }
 
-
 inline __host__ bool fast_check_obstacle_cpu(const u32* obstacles, const u32 pitch, const u32 y, const u32 x) {
     return obstacles[y * pitch + (x >> 5)] & (1U << (x & 31U));
 }
@@ -30,6 +31,16 @@ inline __host__ bool fast_check_obstacle_cpu(const u32* obstacles, const u32 pit
 #define CUDA_CALL(x) cuda_call(x, __LINE__, __FILE__)
 
 #define CUDA_ERROR_CHECK(kernel_name) cuda_error_check(kernel_name, __LINE__, __FILE__)
+
+
+template<typename Kernel_Func, typename... Args>
+void auto_launch_kernel_1D(Kernel_Func&& kernel, std::size_t dynamicSMemSize, cudaStream_t stream, Args&&... args) {
+    int grid_size = 0;
+    int block_size = 0;
+    void * p_args[sizeof...(Args)] = {(void*)(&args)...};
+    CUDA_CALL(cudaOccupancyMaxPotentialBlockSize(&grid_size, &block_size, std::forward<Kernel_Func>(kernel), dynamicSMemSize, 0));
+    CUDA_CALL(cudaLaunchCooperativeKernel((const void*)&kernel, dim3{(unsigned)grid_size, 1U, 1U}, dim3{(unsigned)block_size, 1U,1U}, p_args, dynamicSMemSize, stream));
+}
 
 __host__ void die(const std::string& message, const int line, const char* file); 
 

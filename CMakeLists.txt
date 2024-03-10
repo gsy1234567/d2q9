@@ -30,3 +30,5 @@ file(
 add_executable(main_gpu main_gpu.cu ${gpu_version_src})
 
 target_include_directories(main_gpu PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/gpu_version/include/)
+
+add_executable(test_device test_device.cu)

@@ -4,6 +4,8 @@
 #include <cstdlib>
 #include <cooperative_groups.h>
 #include <fstream>
+#include<iomanip>
+
 
 
 using namespace cooperative_groups;
@@ -19,13 +21,16 @@ struct cpu_data_t {
 struct gpu_data_t {
     array3d<float, Device> dev_speed_src;
     array3d<float, Device> dev_speed_dst;
-    const u32 * constant_obsatcle;
     float * dev_inlets;
     u32 obstacles_pitch;
 };
 
 __device__ bool check_obstacle(u32 pitch, u32 x_idx, u32 y_idx) {
     return dev_obstacles[y_idx * pitch + (x_idx >> 5)] & (1U << (x_idx & 31U));
+}
+
+__host__ bool check_obstacle_host(u32 pitch, u32 x_idx, u32 y_idx) {
+    return host_obstacles[y_idx * pitch + (x_idx >> 5)] & (1U << (x_idx & 31U));
 }
 
 __host__ void set_obstacle(u32 pitch, u32 x_idx, u32 y_idx) {
@@ -113,7 +118,135 @@ __device__ void obstacle(float* tmp) {
     tmp[8] = tmp3;
 } 
 
+__device__ void save_speeds(u32 x_idx, u32 y_idx, const u32 nx, const u32 ny, const float* tmp, array3d<float, Device> dev_speed_dst) {
+    //save speed0
+    if(x_idx < nx - 1) {
+        dev_speed_dst.at(x_idx, y_idx, 0) = tmp[0];
+        if(x_idx == nx - 2) {
+            dev_speed_dst.at(x_idx + 1, y_idx, 0) = tmp[0];
+        }
+    }
+
+    //save speed1
+    if(x_idx < nx - 2) {
+        dev_speed_dst.at(x_idx + 1, y_idx, 1) = tmp[1];
+        if(x_idx == nx - 3) {
+            dev_speed_dst.at(x_idx + 2, y_idx, 1) = tmp[1];
+        }
+    }
+
+    //save speed2
+    if(y_idx == 0 && x_idx < nx - 1) {
+        dev_speed_dst.at(x_idx, 0, 2) = tmp[4];
+        if(x_idx == nx - 2) {
+            dev_speed_dst.at(x_idx + 1, 0, 2) = tmp[4];
+        }
+    }
+    if(x_idx < nx - 1 && y_idx < ny - 1) {
+        dev_speed_dst.at(x_idx, y_idx + 1, 2) = tmp[2];
+        if(x_idx == nx - 2) {
+            dev_speed_dst.at(x_idx + 1, y_idx + 1, 2) = tmp[2];
+        }
+    }
+
+    //save speed3
+    if(x_idx > 0) {
+        dev_speed_dst.at(x_idx - 1, y_idx, 3) = tmp[3];
+        if(x_idx == nx - 1) {
+            dev_speed_dst.at(x_idx, y_idx, 3) = tmp[3];
+        }
+    }
+
+    //save speed4
+    if(y_idx == ny - 1 && x_idx < nx - 1) {
+        dev_speed_dst.at(x_idx, y_idx, 4) = tmp[2];
+        if(x_idx == nx - 2) {
+            dev_speed_dst.at(x_idx + 1, y_idx, 4) = tmp[2];
+        }
+    }
+    if(x_idx < nx - 1 && y_idx > 0) {
+        dev_speed_dst.at(x_idx, y_idx - 1, 4) = tmp[4];
+        if(x_idx == nx - 2) {
+            dev_speed_dst.at(x_idx + 1, y_idx - 1, 4) = tmp[4];
+        }
+    }
+
+    //save speed5
+    if(y_idx == 0 && x_idx > 0 && x_idx < nx - 1) {
+        dev_speed_dst.at(x_idx, 0, 5) = tmp[7];
+        if(x_idx == nx - 2) {
+            dev_speed_dst.at(x_idx + 1, 0, 5) = tmp[7];
+        }
+    }
+    if(x_idx < nx - 2 && y_idx < ny - 1) {
+        dev_speed_dst.at(x_idx + 1, y_idx + 1, 5) = tmp[5];
+        if(x_idx == nx - 3) {
+            dev_speed_dst.at(x_idx + 2, y_idx + 1, 5) = tmp[5];
+        }
+    }
+
+    //save speed6
+    if(y_idx == 0 && x_idx < nx - 1) {
+        dev_speed_dst.at(x_idx, 0, 6) = tmp[8];
+        if(x_idx == nx - 2) {
+            dev_speed_dst.at(x_idx + 1, 0, 6) = tmp[8];
+        }
+    }
+    if(x_idx > 0 && y_idx < ny - 1) {
+        dev_speed_dst.at(x_idx - 1, y_idx + 1, 6) = tmp[6];
+        if(x_idx == nx - 1) {
+            dev_speed_dst.at(x_idx, y_idx + 1, 6) = tmp[6];
+        }
+    }
+
+    //save speed7
+    if(y_idx == ny - 1 && x_idx < nx - 1) {
+        dev_speed_dst.at(x_idx, y_idx, 7) = tmp[5];
+        if(x_idx == nx - 2) {
+            dev_speed_dst.at(x_idx + 1, y_idx, 7) = tmp[5];
+        }
+    }
+    if(x_idx > 0 && y_idx > 0) {
+        dev_speed_dst.at(x_idx - 1, y_idx - 1, 7) = tmp[7];
+        if(x_idx == nx - 1) {
+            dev_speed_dst.at(x_idx, y_idx - 1, 7) = tmp[7];
+        }
+    }
+
+    //save speed8
+    if(y_idx == ny - 1 && x_idx > 0 && x_idx < nx - 1) {
+        dev_speed_dst.at(x_idx, y_idx, 8) = tmp[6];
+        if(x_idx == nx - 2) {
+            dev_speed_dst.at(x_idx + 1, y_idx, 8) = tmp[6];
+        }
+    }
+    if(x_idx < nx - 2 && y_idx > 0) {
+        dev_speed_dst.at(x_idx + 1, y_idx - 1, 8) = tmp[8];
+        if(x_idx == nx - 3) {
+            dev_speed_dst.at(x_idx + 2, y_idx - 1, 8) = tmp[8];
+        }
+    }
+}
+
+__device__ void left_boundary(u32 y_idx, array3d<float, Device> dev_speeds_dst, float* local_tmp, const float* dev_inlets) {
+    constexpr float cst1 = 2.f / 3.f;
+    constexpr float cst2 = 1.f / 6.f;
+    constexpr float cst3 = 1.f / 2.f;
+    local_tmp[0] = dev_speeds_dst.at(0, y_idx, 0);
+    local_tmp[2] = dev_speeds_dst.at(0, y_idx, 2);
+    local_tmp[3] = dev_speeds_dst.at(0, y_idx, 3);
+    local_tmp[4] = dev_speeds_dst.at(0, y_idx, 4);
+    local_tmp[6] = dev_speeds_dst.at(0, y_idx, 6);
+    local_tmp[7] = dev_speeds_dst.at(0, y_idx, 7);
+    const float inlets = dev_inlets[y_idx];
+    const float local_denisty = ((local_tmp[0] + local_tmp[2] + local_tmp[4]) + 2.f * (local_tmp[3] + local_tmp[6] + local_tmp[7])) / (1.f - inlets);
+    dev_speeds_dst.at(0, y_idx, 1) = local_tmp[3] + cst1 * local_denisty * inlets;
+    dev_speeds_dst.at(0, y_idx, 5) = local_tmp[7] - cst3 * (local_tmp[2] - local_tmp[4]) + cst2 * local_denisty * inlets;
+    dev_speeds_dst.at(0, y_idx, 8) = local_tmp[6] + cst3 * (local_tmp[2] - local_tmp[4]) + cst2 * local_denisty * inlets;
+}
+
 __device__ void stream(float* tmp, const u32 x_idx, const u32 y_idx, const u32 nx, const u32 ny, array3d<float, Device> dev_speeds_dst) {
+    
     dev_speeds_dst.at(x_idx, y_idx, 0) = tmp[0];
 
     if(x_idx + 1 < nx) {
@@ -128,6 +261,11 @@ __device__ void stream(float* tmp, const u32 x_idx, const u32 y_idx, const u32 n
         if(x_idx > 0) {
             dev_speeds_dst.at(x_idx - 1, y_idx + 1, 6) = tmp[6];
         }
+    } else {
+        //y_idx + 1 == ny -> top wall
+        dev_speeds_dst.at(x_idx, y_idx, 4) = tmp[2];
+        dev_speeds_dst.at(x_idx, y_idx, 7) = tmp[5];
+        dev_speeds_dst.at(x_idx, y_idx, 8) = tmp[6];
     }
 
     if(x_idx > 0) {
@@ -142,7 +280,14 @@ __device__ void stream(float* tmp, const u32 x_idx, const u32 y_idx, const u32 n
         if(x_idx + 1 < nx) {
             dev_speeds_dst.at(x_idx + 1, y_idx - 1, 8) = tmp[8];
         }
+    } else {
+        //y_idx == 0 -> bottom wall
+        dev_speeds_dst.at(x_idx, y_idx, 2) = tmp[4];
+        dev_speeds_dst.at(x_idx, y_idx, 5) = tmp[7];
+        dev_speeds_dst.at(x_idx, y_idx, 6) = tmp[8];
     }
+
+    
 }
 
 __device__ void boundary(float* tmp, const u32 x_idx, const u32 y_idx, const u32 nx, const u32 ny, array3d<float, Device> dev_speeds_dst, const float* dev_inlets) {
@@ -195,27 +340,26 @@ __device__ void boundary(float* tmp, const u32 x_idx, const u32 y_idx, const u32
 
 __global__ void _d2q9_bgk(t_param params, gpu_data_t gpu_data) {
     float tmp[9]; //locate in on-chip memory
-    
-    const u32 x_idx    = blockIdx.x * blockDim.x + threadIdx.x;
-    const u32 y_idx    = blockIdx.y * blockDim.y + threadIdx.y;
 
     for(u32 i = 0 ; i < params.maxIters ; ++i) {
-        if(x_idx < params.nx && y_idx < params.ny) {
-            load_speeds(x_idx, y_idx, tmp, gpu_data.dev_speed_src);
-            if(check_obstacle(gpu_data.obstacles_pitch, x_idx, y_idx)) {
-                obstacle(tmp);
-            } else {
-                collision(tmp, params.omega);
+        for(u32 y_idx = blockIdx.x ; y_idx < params.ny ; y_idx += gridDim.x) { 
+            for(u32 x_idx = threadIdx.x ; x_idx < params.nx ; x_idx += blockDim.x) {
+                load_speeds(x_idx, y_idx, tmp, gpu_data.dev_speed_src);
+                if(check_obstacle(gpu_data.obstacles_pitch, x_idx, y_idx)) {
+                    obstacle(tmp);
+                } else {
+                    collision(tmp, params.omega);
+                }
+                save_speeds(x_idx, y_idx, params.nx, params.ny, tmp, gpu_data.dev_speed_dst);
             }
-            stream(tmp, x_idx, y_idx, params.nx, params.ny, gpu_data.dev_speed_dst);
         }
-
         this_grid().sync();
-
-
-        if(x_idx < params.nx && y_idx < params.ny) {
-            boundary(tmp, x_idx, y_idx, params.nx, params.ny, gpu_data.dev_speed_dst, gpu_data.dev_inlets);
+        if(threadIdx.x == 0) {
+            for(u32 y_idx = blockIdx.x ; y_idx < params.ny ; y_idx += gridDim.x) {
+                left_boundary(y_idx, gpu_data.dev_speed_dst, tmp, gpu_data.dev_inlets);
+            }
         }
+        
 
         auto tmp = gpu_data.dev_speed_src._ptr.ptr;
         gpu_data.dev_speed_src._ptr.ptr = gpu_data.dev_speed_dst._ptr.ptr;
@@ -225,41 +369,34 @@ __global__ void _d2q9_bgk(t_param params, gpu_data_t gpu_data) {
 }
 
 __global__ void _init_device_speeds(array3d<float, Device> dev_speeds, float density, const u32 nx, const u32 ny) {
-    const u32 x_idx = blockDim.x * blockIdx.x + threadIdx.x;
-    const u32 y_idx = blockDim.y * blockIdx.y + threadIdx.y;
-    if(x_idx < nx && y_idx < ny) {
-        dev_speeds.at(x_idx, y_idx, 0) = density * 4.f / 9.f;
-        dev_speeds.at(x_idx, y_idx, 1) = density / 9.f;
-        dev_speeds.at(x_idx, y_idx, 2) = density / 9.f;
-        dev_speeds.at(x_idx, y_idx, 3) = density / 9.f;
-        dev_speeds.at(x_idx, y_idx, 4) = density / 9.f;
-        dev_speeds.at(x_idx, y_idx, 5) = density / 36.f;
-        dev_speeds.at(x_idx, y_idx, 6) = density / 36.f;
-        dev_speeds.at(x_idx, y_idx, 7) = density / 36.f;
-        dev_speeds.at(x_idx, y_idx, 8) = density / 36.f;
+    for(u32 y_idx = blockIdx.x ; y_idx < ny ; y_idx += gridDim.x) {
+        for(u32 x_idx = threadIdx.x ; x_idx < nx ; x_idx += blockDim.x) {
+            dev_speeds.at(x_idx, y_idx, 0) = density * 4.f / 9.f;
+            dev_speeds.at(x_idx, y_idx, 1) = density / 9.f;
+            dev_speeds.at(x_idx, y_idx, 2) = density / 9.f;
+            dev_speeds.at(x_idx, y_idx, 3) = density / 9.f;
+            dev_speeds.at(x_idx, y_idx, 4) = density / 9.f;
+            dev_speeds.at(x_idx, y_idx, 5) = density / 36.f;
+            dev_speeds.at(x_idx, y_idx, 6) = density / 36.f;
+            dev_speeds.at(x_idx, y_idx, 7) = density / 36.f;
+            dev_speeds.at(x_idx, y_idx, 8) = density / 36.f;
+        }
     }
 }
 
 __global__ void _init_device_inlets(u32 ny, float velocity, bool type, float* dev_inlets) {
-    const u32 x_idx = blockDim.x * blockIdx.x + threadIdx.x;
-    if(x_idx < ny) {
-        dev_inlets[x_idx] = type ? velocity * 4.f * (1.f - (float)x_idx / (float)ny) * ((float)x_idx + 1.f) / (float)ny : velocity;
+    for(u32 y_idx = blockDim.x * blockIdx.x + threadIdx.x ; y_idx < ny ; y_idx += gridDim.x * blockDim.x) {
+        dev_inlets[y_idx] = type ? velocity * 4.f * (1.f - (float)y_idx / (float)ny) * ((float)y_idx + 1.f) / (float)ny : velocity;
     }
 }
 
 __host__ void init_device_data(const t_param& params, gpu_data_t& gpu_data,  const char* obstaclesfile, cudaStream_t stream = 0) {
-    constexpr u32 block_x = 32;
-    constexpr u32 block_y = 32;
     gpu_data.obstacles_pitch = (params.nx - 1) / 32 + 1;
-    gpu_data.constant_obsatcle = dev_obstacles;
     if(gpu_data.obstacles_pitch * params.ny > 0x4000) {
         die("don't have enough constant memory!", __LINE__, __FILE__);
     }
-    dim3 grid_info {(params.nx - 1) / block_x + 1, (params.ny - 1) / block_y + 1, 1};
-    dim3 block_info {block_x, block_y, 1};
-    _init_device_speeds<<<grid_info, block_info, 0, stream>>>(gpu_data.dev_speed_src, params.density, params.nx, params.ny);
-    _init_device_inlets<<<(params.nx - 1) / block_x + 1, block_x, 0, stream>>>(params.ny, params.velocity, params.type, gpu_data.dev_inlets);
-
+    auto_launch_kernel_1D(_init_device_speeds, 0, stream, gpu_data.dev_speed_src, params.density, params.nx, params.ny);
+    auto_launch_kernel_1D(_init_device_inlets, 0, stream, params.ny, params.velocity, params.type, gpu_data.dev_inlets);
     std::ifstream obstacle_file{obstaclesfile};
     std::string line;
     int nx, ny, block;
@@ -305,7 +442,47 @@ __host__ void print_host_speeds(const t_param& params, float* host_speeds) {
     }
 }
 
-
+__host__ void write_state(const char* output_path, const t_param& params, float* host_speeds, u32 obstacles_pitch) {
+    std::string out_file_name {output_path};
+    out_file_name += "/gpu_final_state.dat";
+    std::ofstream out {out_file_name};
+    if(!out) {
+        die("Could not open the output file\n", __LINE__, __FILE__);
+    }
+    float u_x, u_y, u, local_density;
+    for(int jj = 0 ; jj < params.ny ; ++jj) {
+        for(int ii = 0 ; ii < params.nx ; ++ii) {
+            if(check_obstacle_host(obstacles_pitch, ii, jj)) {
+                u = -0.05f;
+            } else {
+                local_density = 0.f;
+                for(int kk = 0 ; kk < 9 ; ++kk) {
+                    local_density += host_speeds[ii + (jj + params.ny * kk) * params.nx];
+                }
+                u_x =  ((
+                        host_speeds[ii + (jj + params.ny * 1) * params.nx] + 
+                        host_speeds[ii + (jj + params.ny * 5) * params.nx] + 
+                        host_speeds[ii + (jj + params.ny * 8) * params.nx]
+                       ) - (
+                        host_speeds[ii + (jj + params.ny * 3) * params.nx] + 
+                        host_speeds[ii + (jj + params.ny * 6) * params.nx] + 
+                        host_speeds[ii + (jj + params.ny * 7) * params.nx]
+                       )) / local_density;
+                u_y = ((
+                       host_speeds[ii + (jj + params.ny * 2) * params.nx] + 
+                       host_speeds[ii + (jj + params.ny * 5) * params.nx] + 
+                       host_speeds[ii + (jj + params.ny * 6) * params.nx]
+                      ) - (
+                        host_speeds[ii + (jj + params.ny * 4) * params.nx] + 
+                        host_speeds[ii + (jj + params.ny * 7) * params.nx] + 
+                        host_speeds[ii + (jj + params.ny * 8) * params.nx]
+                      )) / local_density;
+                u = sqrtf(u_x * u_x + u_y * u_y);
+                out << ii << " " << jj << " " << std::setprecision(12) << std::fixed << u << std::endl;
+            }
+        }
+    }
+}
 
 inline void usage(const char* exe) {
   fprintf(stderr, "Usage: %s <paramfile> <obstaclefile> <output_directory>\n", exe);
@@ -340,27 +517,38 @@ int main(int argc, char *argv[]) {
 
     gpu_data.dev_speed_src = p_host_1;
     gpu_data.dev_speed_dst = p_host_2;
+    cudaEvent_t init_start, init_end;
+    cudaEvent_t cal_start, cal_end;
+    float init_elapsedTime;
+    float cal_elapsedTime;
+    CUDA_CALL(cudaEventCreate(&init_start));
+    CUDA_CALL(cudaEventCreate(&init_end));
+    CUDA_CALL(cudaEventCreate(&cal_start));
+    CUDA_CALL(cudaEventCreate(&cal_end));
+    CUDA_CALL(cudaEventRecord(init_start, cuda_stream));
     CUDA_CALL(cudaMallocAsync(&gpu_data.dev_inlets, params.ny * sizeof(float), cuda_stream));
     init_device_data(params, gpu_data, obstaclefile, cuda_stream);
-    dim3 grid_info {
-        (params.nx - 1) / 32 + 1, 
-        (params.ny - 1) / 16 + 1, 
-        1
-    };
-    dim3 block_info {
-        32, 16, 1
-    };
-    void * args[] = {&params, &gpu_data};
-    CUDA_CALL(cudaLaunchCooperativeKernel((void*)_d2q9_bgk, grid_info, block_info, args, 0, cuda_stream));
+    CUDA_CALL(cudaEventRecord(init_end, cuda_stream));
+    CUDA_CALL(cudaEventRecord(cal_start, cuda_stream));
+    auto_launch_kernel_1D(_d2q9_bgk, 0, cuda_stream, params, gpu_data);
     cuda_error_check("_d2q9_bgk", __LINE__, __FILE__);
     if(params.maxIters % 2 == 0) {
         copy_device_speeds_to_host(params, p_host_1, host_speeds, cuda_stream);
     } else {
         copy_device_speeds_to_host(params, p_host_2, host_speeds, cuda_stream);
     }
+    CUDA_CALL(cudaEventRecord(cal_end, cuda_stream));
+
 
     CUDA_CALL(cudaStreamSynchronize(cuda_stream));
-    print_host_speeds(params, host_speeds);
+    write_state(out_dir, params, host_speeds, gpu_data.obstacles_pitch);
+    printf("==done==\n");
+    CUDA_CALL(cudaEventElapsedTime(&init_elapsedTime, init_start, init_end));
+    CUDA_CALL(cudaEventElapsedTime(&cal_elapsedTime, cal_start, cal_end));
+    printf("Elapsed Init time:\t\t\t%.5f (ms)\n",    init_elapsedTime);
+    printf("Elapsed Compute time:\t\t\t%.5f (ms)\n", cal_elapsedTime);
+    CUDA_CALL(cudaStreamDestroy(cuda_stream));
+    //print_host_speeds(params, host_speeds);
     CUDA_CALL(cudaFreeHost(host_speeds));
     CUDA_CALL(cudaFree(gpu_data.dev_inlets));
     return 0;

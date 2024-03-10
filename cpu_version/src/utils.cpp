@@ -232,7 +232,7 @@ int write_state(char* filename, const t_param params, t_speed* cells, int* obsta
       }
 
       /* write to file */
-      fprintf(fp, "%d %d %.12E\n", ii, jj, u);
+      fprintf(fp, "%d %d %.12f\n", ii, jj, u);
     }
   }
   
